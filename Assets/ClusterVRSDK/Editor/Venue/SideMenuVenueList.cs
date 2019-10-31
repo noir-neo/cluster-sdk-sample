@@ -11,50 +11,29 @@ using UnityEngine.UIElements;
 
 namespace ClusterVRSDK.Editor.Venue
 {
-    public class SelectVenueView
+    public class SideMenuVenueList
     {
+        public readonly Reactive<bool> reactiveForceLogout = new Reactive<bool>();
         public readonly Reactive<Core.Editor.Venue.Json.Venue> reactiveCurrentVenue = new Reactive<Core.Editor.Venue.Json.Venue>();
 
         readonly UserInfo userInfo;
+
         readonly Dictionary<GroupID, Venues> allVenues = new Dictionary<GroupID, Venues>();
 
         VisualElement selector;
 
-        public SelectVenueView(UserInfo userInfo)
+        public SideMenuVenueList(UserInfo userInfo)
         {
             this.userInfo = userInfo;
         }
 
         public void AddView(VisualElement parent)
         {
-            selector = new VisualElement();
-            var venueInfo = new VisualElement();
+            selector = new VisualElement() {style = {flexGrow = 1}};
             parent.Add(selector);
-            parent.Add(venueInfo);
-
-            ReactiveBinder.Bind(reactiveCurrentVenue, venue =>
-            {
-                venueInfo.Clear();
-                if (venue == null)
-                {
-                    return;
-                }
-
-                var thumbnailView = new DrawThumbnailView();
-                venueInfo.Add(new IMGUIContainer(() =>
-                {
-                    EditorGUILayout.LabelField("説明");
-                    EditorGUILayout.HelpBox(venue.Description, MessageType.None);
-
-                    if (venue.ThumbnailUrls.Any())
-                    {
-                        thumbnailView.OverwriteDownloadUrl(venue.ThumbnailUrls.First(x => x != null));
-                    }
-                    thumbnailView.DrawUI(false);
-                }));
-            });
-
             RefreshVenueSelector();
+
+            new PreviewVenueView(reactiveCurrentVenue).AddView(parent);
         }
 
         public void RefetchVenueWithoutChangingSelection()
@@ -96,19 +75,28 @@ namespace ClusterVRSDK.Editor.Venue
                 }
 
                 selector.Clear();
+
+                selector.Add(new Label("ユーザー"));
+                var userSelector = new VisualElement(){style = {flexDirection = FlexDirection.Row, flexShrink = 0}};
+                userSelector.Add(new Label(userInfo.Username));
+                userSelector.Add(new Button(() => reactiveForceLogout.Val = true) {text = "切替"});
+                selector.Add(userSelector);
+
                 if (groups.List.Count == 0)
                 {
                     selector.Add(new IMGUIContainer(() => EditorGUILayout.HelpBox("clusterにてチーム登録をお願いいたします", MessageType.Warning)));
                 }
                 else
                 {
-                    var teamMenu = new PopupField<Group>("所属チーム", groups.List, 0, group => group.Name, group => group.Name);
+                    selector.Add(new Label("所属チーム"));
+                    var teamMenu = new PopupField<Group>(groups.List, 0, group => group.Name, group => group.Name);
                     teamMenu.RegisterValueChangedCallback(ev => RecreateVenuePicker(ev.newValue.Id));
                     selector.Add(teamMenu);
 
                     var groupToSelect = groups.List.Find(group => group.Id == groupIdToSelect) ?? groups.List[0];
                     teamMenu.SetValueWithoutNotify(groupToSelect);
 
+                    selector.Add(UiUtils.Separator());
                     RecreateVenuePicker(groupToSelect.Id);
                 }
             }
@@ -122,48 +110,37 @@ namespace ClusterVRSDK.Editor.Venue
 
         VisualElement CreateVenuePicker(GroupID groupId, Venues venues, VenueID venueIdToSelect = null)
         {
-            var container = new VisualElement()
+            var venueList = new ScrollView(ScrollViewMode.Vertical)
             {
-                style = {flexDirection = FlexDirection.Row}
+                style = {marginTop = 8}
             };
-
-            if (venues.List.Count != 0)
+            venueList.Add(new Button(() => CreateNewVenue(groupId))
             {
-                var dupedVenueNames = new HashSet<string>(
-                    venues.List.GroupBy(venue => venue.Name, venue => venue.VenueId, (name, ids) => ids.Count() >= 2 ? name : "").Where(name => name != ""));
-                string GetUniqueVenueName(Core.Editor.Venue.Json.Venue venue)
-                {
-                    return dupedVenueNames.Contains(venue.Name) ? $"{venue.Name} ({venue.VenueId.Value})" : venue.Name;
-                }
-
-                var venueMenu = new PopupField<Core.Editor.Venue.Json.Venue>("会場一覧", venues.List, 0, GetUniqueVenueName, GetUniqueVenueName);
-                venueMenu.style.flexGrow = 1f;
-                venueMenu.RegisterValueChangedCallback(ev => { reactiveCurrentVenue.Val = ev.newValue; });
-                container.Add(venueMenu);
-
-                var venueToSelect = venues.List.Find(venue => venue.VenueId == venueIdToSelect) ?? venues.List[0];
-                venueMenu.SetValueWithoutNotify(venueToSelect);
-
-                reactiveCurrentVenue.Val = venueToSelect;
-            }
-            else
-            {
-                reactiveCurrentVenue.Val = null;
-            }
-
-            container.Add(new Button(() => CreateNewVenue(groupId))
-            {
-                text = "新規会場追加"
+                text = "新規会場",
+                style = {color = new StyleColor(new Color(0.5f, 1, 0.5f))}
             });
-            return container;
+
+            foreach (var venue in venues.List.OrderBy(venue => venue.Name))
+            {
+                var venueButton = new Button(() => { reactiveCurrentVenue.Val = venue; })
+                {
+                    text = venue.Name,
+                    style = {unityTextAlign = TextAnchor.MiddleLeft},
+                };
+                venueList.Add(venueButton);
+            }
+
+            reactiveCurrentVenue.Val = venues.List.Find(venue => venue.VenueId == venueIdToSelect);
+
+            return venueList;
         }
 
         void CreateNewVenue(GroupID groupId)
         {
             var newVenuePayload = new PostNewVenuePayload
             {
-                description = "説明未設定",
                 name = "NewVenue",
+                description = "説明未設定",
                 groupId = groupId.Value,
             };
 
@@ -173,7 +150,7 @@ namespace ClusterVRSDK.Editor.Venue
                     newVenuePayload,
                     venue =>
                     {
-                        RefreshVenueSelector();
+                        RefreshVenueSelector(groupId, venue.VenueId);
                         reactiveCurrentVenue.Val = venue;
                     },
                     exception =>

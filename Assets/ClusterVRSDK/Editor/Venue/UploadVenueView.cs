@@ -1,9 +1,12 @@
 using System;
+using System.IO;
 using System.Linq;
+using ClusterVRSDK.Core.Editor;
 using ClusterVRSDK.Core.Editor.Venue;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.UIElements;
 
 namespace ClusterVRSDK.Editor.Venue
 {
@@ -23,7 +26,12 @@ namespace ClusterVRSDK.Editor.Venue
             this.venue = venue;
         }
 
-        public void Process()
+        public VisualElement CreateView()
+        {
+            return new IMGUIContainer(() => {Process(); DrawUI();});
+        }
+
+        void Process()
         {
             if (executeUpload)
             {
@@ -61,9 +69,11 @@ namespace ClusterVRSDK.Editor.Venue
             }
         }
 
-        public void DrawUI()
+        void DrawUI()
         {
             EditorGUILayout.Space();
+            EditorGUILayout.HelpBox("アップロードするシーンを開いておいてください。", MessageType.Info);
+
 
             if (GUILayout.Button($"'{venue.Name}'としてアップロードする"))
             {
@@ -116,6 +126,13 @@ namespace ClusterVRSDK.Editor.Venue
                     currentUploadService.Run();
                     errorMessage = null;
                 }
+            }
+
+            if (File.Exists(EditorPrefsUtils.LastBuildPath))
+            {
+                var fileInfo = new FileInfo(EditorPrefsUtils.LastBuildPath);
+                EditorGUILayout.LabelField($"日時：{fileInfo.LastWriteTime}");
+                EditorGUILayout.LabelField($"サイズ：{(double) fileInfo.Length / (1024 * 1024):F2} MB"); // Byte => MByte
             }
         }
     }

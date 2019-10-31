@@ -1,4 +1,4 @@
-using System;
+using System.Threading.Tasks;
 using ClusterVRSDK.Core.Editor;
 using ClusterVRSDK.Core.Editor.Venue;
 using UnityEditor;
@@ -9,38 +9,32 @@ namespace ClusterVRSDK.Editor
 {
     public class TokenAuthWidget
     {
-        [Obsolete("Use reactiveUserInfo")]
-        public string VerifiedToken => reactiveUserInfo.Val.HasValue ? reactiveUserInfo.Val.Value.VerifiedToken : "";
-        [Obsolete("Use reactiveUserInfo")]
-        public string Username =>  reactiveUserInfo.Val.HasValue ? reactiveUserInfo.Val.Value.Username : "";
-        [Obsolete("Use reactiveUserInfo")]
-        public bool IsLoggedIn => reactiveUserInfo.Val.HasValue;
-
         public readonly Reactive<UserInfo?> reactiveUserInfo = new Reactive<UserInfo?>();
         readonly Reactive<string> reactiveMessage = new Reactive<string>();
 
         bool isLoggingIn;
 
-        public void AddView(VisualElement parent)
+        public VisualElement CreateView()
         {
-            parent.Add(new IMGUIContainer(() => EditorGUILayout.LabelField("APIアクセストークン", EditorStyles.boldLabel)));
+            var container = new VisualElement();
+            container.Add(new IMGUIContainer(() => EditorGUILayout.LabelField("APIアクセストークン", EditorStyles.boldLabel)));
 
             var accessToken = new TextField();
             accessToken.RegisterValueChangedCallback(ev =>
             {
                 ValidateAndLogin(ev.newValue);
             });
-            parent.Add(accessToken);
+            container.Add(accessToken);
 
-            parent.Add(
+            container.Add(
                 new Button(() => Application.OpenURL(Constants.WebBaseUrl + "/app/my/tokens"))
                 {
                     text = "トークンを入手"
                 });
 
             var messageLabel = new Label();
-            parent.Add(messageLabel);
-            ReactiveBinder.Bind(this.reactiveMessage, msg => { messageLabel.text = msg; });
+            container.Add(messageLabel);
+            ReactiveBinder.Bind(reactiveMessage, msg => { messageLabel.text = msg; });
 
             // TODO: 他のwindowでloginしたときにも自動で同期する
             if (!string.IsNullOrEmpty(EditorPrefsUtils.SavedAccessToken))
@@ -50,9 +44,16 @@ namespace ClusterVRSDK.Editor
 
             // 初期状態 or 既存のトークンをvalidateして何かのメッセージを出すのに必要
             ValidateAndLogin(EditorPrefsUtils.SavedAccessToken);
+            return container;
         }
 
-        void ValidateAndLogin(string token)
+        public void Logout()
+        {
+            reactiveUserInfo.Val = null;
+            EditorPrefsUtils.SavedAccessToken = null;
+        }
+
+        async Task ValidateAndLogin(string token)
         {
             if (string.IsNullOrEmpty(token))
             {
@@ -73,19 +74,25 @@ namespace ClusterVRSDK.Editor
             {
                 return;
             }
-            isLoggingIn = true;
-            var _ = APIServiceClient.GetMyUser.CallWithCallback(Empty.Value, token, user =>
+            try
             {
-                isLoggingIn = false;
+                isLoggingIn = true;
+                var user = await APIServiceClient.GetMyUser.Call(Empty.Value, token);
 
+                if (string.IsNullOrEmpty(user.Username))
+                {
+                    reactiveMessage.Val = "認証に失敗しました";
+                    return;
+                }
                 reactiveUserInfo.Val = new UserInfo(user.Username, token);
                 reactiveMessage.Val = "Logged in as " + "\"" + user.Username + "\"";
 
                 EditorPrefsUtils.SavedAccessToken = token;
-            }, exc =>
+            }
+            finally
             {
                 isLoggingIn = false;
-            }, 3);
+            }
         }
     }
 }

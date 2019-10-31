@@ -17,56 +17,81 @@ namespace ClusterVRSDK.Editor
         void OnEnable()
         {
             var tokenAuth = new TokenAuthWidget();
-            tokenAuth.AddView(rootVisualElement);
-            rootVisualElement.Add(UiUtils.Separator());
+            var tokenAuthView = tokenAuth.CreateView(); // .Bindで作り直すとなぜかYogaNodeがStackoverflowするので使い回す
+            rootVisualElement.Add(tokenAuthView);
 
-            VisualElement loggedInUiContainer = null;
+            VisualElement venueUi = null;
             ReactiveBinder.Bind(tokenAuth.reactiveUserInfo, userInfo =>
             {
-                if (loggedInUiContainer != null)
+                if (venueUi != null)
                 {
-                    rootVisualElement.Remove(loggedInUiContainer);
+                    rootVisualElement.Remove(venueUi);
+                    venueUi = null;
                 }
 
                 if (userInfo.HasValue)
                 {
-                    loggedInUiContainer = CreateVenueUi(userInfo.Value);
-                    rootVisualElement.Add(loggedInUiContainer);
+                    venueUi = CreateVenueUi(tokenAuth, userInfo.Value);
+                    rootVisualElement.Add(venueUi);
+
+                    tokenAuthView.style.display = DisplayStyle.None;
                 }
                 else
                 {
-                    loggedInUiContainer = null;
+                    tokenAuthView.style.display = DisplayStyle.Flex;
                 }
             });
         }
 
-        VisualElement CreateVenueUi(UserInfo userInfo)
+        VisualElement CreateVenueUi(TokenAuthWidget tokenAuth, UserInfo userInfo)
         {
-            var selectVenue = new SelectVenueView(userInfo);
-
-            var container = new VisualElement();
-            var editAndUploadContainer = new VisualElement();
-            var scrollView = new ScrollView(ScrollViewMode.Vertical);
+            var container = new VisualElement()
             {
-                selectVenue.AddView(scrollView);
-                scrollView.Add(UiUtils.Separator());
-                scrollView.Add(editAndUploadContainer);
-            }
-            container.Add(scrollView);
-            container.Add(UiUtils.Separator());
-
-            var previewVenueView = new PreviewVenueView(selectVenue.reactiveCurrentVenue);
-            previewVenueView.AddView(container);
-
-            ReactiveBinder.Bind(selectVenue.reactiveCurrentVenue, currentVenue =>
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    flexGrow = 1,
+                }
+            };
+            var sidePane = new VisualElement()
             {
-                editAndUploadContainer.Clear();
+                style =
+                {
+                    borderColor = new StyleColor(Color.gray),
+                    borderRightWidth = 1,
+                    paddingRight = 4,
+                }
+            };
+            var mainPane = new VisualElement()
+            {
+                style = {flexGrow = 1}
+            };
+            container.Add(sidePane);
+            container.Add(mainPane);
+
+            // Side
+            var sideMenu = new SideMenuVenueList(userInfo);
+            sideMenu.AddView(sidePane);
+            ReactiveBinder.Bind(sideMenu.reactiveForceLogout, forceLogout =>
+            {
+                if (forceLogout)
+                {
+                    tokenAuth.Logout();
+                }
+            });
+
+            // Main
+            ReactiveBinder.Bind(sideMenu.reactiveCurrentVenue, currentVenue =>
+            {
+                mainPane.Clear();
                 if (currentVenue != null)
                 {
+                    var venueContent = new ScrollView(ScrollViewMode.Vertical) {style = {flexGrow = 1}};
                     new EditAndUploadVenueView(userInfo, currentVenue, () =>
                     {
-                        selectVenue.RefetchVenueWithoutChangingSelection();
-                    }).AddView(editAndUploadContainer);
+                        sideMenu.RefetchVenueWithoutChangingSelection();
+                    }).AddView(venueContent);
+                    mainPane.Add(venueContent);
                 }
             });
 

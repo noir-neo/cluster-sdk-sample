@@ -60,7 +60,6 @@ namespace ClusterVRSDK.Editor.Venue
 
         void DrawUI()
         {
-            using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.Space();
 
@@ -72,7 +71,7 @@ namespace ClusterVRSDK.Editor.Venue
                     executePreviousPreview = GUILayout.Button("以前のビルドをプレビュー");
                 }
 
-                executePreview = GUILayout.Button("　プレビュー　");
+                executePreview = GUILayout.Button("　今開いているシーンをプレビュー　");
             }
 
             EditorGUILayout.Space();
@@ -82,18 +81,7 @@ namespace ClusterVRSDK.Editor.Venue
                 var fileInfo = new FileInfo(EditorPrefsUtils.LastBuildPath);
                 EditorGUILayout.LabelField($"日時：{fileInfo.LastWriteTime}");
                 EditorGUILayout.LabelField($"サイズ：{(double) fileInfo.Length / (1024 * 1024):F2} MB"); // Byte => MByte
-
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.LabelField($"ビルドした会場名：{fileInfo.Name}");
-                    if (GUILayout.Button("Copy"))
-                    {
-                        EditorGUIUtility.systemCopyBuffer = fileInfo.Name;
-                    }
-                }
             }
-
-            EditorGUILayout.HelpBox("アップロードまたはプレビューを行うシーンを開いておいてください。", MessageType.Info);
         }
     }
 }
