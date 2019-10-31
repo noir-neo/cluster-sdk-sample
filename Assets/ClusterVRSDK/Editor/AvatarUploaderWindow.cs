@@ -59,9 +59,8 @@ namespace ClusterVRSDK.Editor
         void OnEnable()
         {
             tokenAuth = new TokenAuthWidget();
-            tokenAuth.AddView(rootVisualElement);
+            rootVisualElement.Add(tokenAuth.CreateView());
             rootVisualElement.Add(UiUtils.Separator());
-
             rootVisualElement.Add(new IMGUIContainer(LegacyOnGUI));
         }
 
@@ -92,8 +91,10 @@ namespace ClusterVRSDK.Editor
             ShowThumbnail();
 
             var canExport = false;
-            if (avatarGameObject != null && tokenAuth.IsLoggedIn && !string.IsNullOrEmpty(avatarName))
+            if (avatarGameObject != null && tokenAuth.reactiveUserInfo.Val.HasValue && !string.IsNullOrEmpty(avatarName))
             {
+                var userInfo = tokenAuth.reactiveUserInfo.Val.Value;
+
                 canExport = true;
                 exportSettings = new VRMExportSettings();
                 exportSettings.InitializeFrom(avatarGameObject);
@@ -105,7 +106,7 @@ namespace ClusterVRSDK.Editor
 
                 if (string.IsNullOrEmpty(exportSettings.Author))
                 {
-                    exportSettings.Author = tokenAuth.Username;
+                    exportSettings.Author = userInfo.Username;
                 }
 
                 foreach (var error in exportSettings.CanExport())
@@ -121,28 +122,20 @@ namespace ClusterVRSDK.Editor
                              canExport;
 
             EditorGUI.BeginDisabledGroup(!canBuildAvatar || isProcessing);
-            if (GUILayout.Button("Build"))
+            if (GUILayout.Button("Build") && tokenAuth.reactiveUserInfo.Val.HasValue)
             {
-                BuildVRM();
-            }
-
-            if (canUploadAvatar)
-            {
-                if (GUILayout.Button("Open test room"))
-                {
-                    GetWindow<PreviewLauncherWindow>("Open test room");
-                }
+                BuildVRM(tokenAuth.reactiveUserInfo.Val.Value);
             }
 
             EditorGUI.EndDisabledGroup();
         }
 
-        void BuildVRM()
+        void BuildVRM(UserInfo userInfo)
         {
             var thumbnailPath = ExportThumbnailFile();
             var vrmPath = ExportVRMFile(avatarGameObject);
 
-            var checker = new ValidationRuleFetcher(tokenAuth.VerifiedToken, rule =>
+            var checker = new ValidationRuleFetcher(userInfo.VerifiedToken, rule =>
             {
                 validationErrors.Clear();
                 isUnlimited = false;
@@ -217,10 +210,11 @@ namespace ClusterVRSDK.Editor
 
         void ShowPublishAvatarUI()
         {
-            if (!canUploadAvatar)
+            if (!canUploadAvatar || !tokenAuth.reactiveUserInfo.Val.HasValue)
             {
                 return;
             }
+            var userInfo = tokenAuth.reactiveUserInfo.Val.Value;
 
             EditorGUILayout.LabelField("Upload", EditorStyles.boldLabel);
 
@@ -235,7 +229,7 @@ namespace ClusterVRSDK.Editor
             {
                 isProcessing = true;
                 EditorUtility.DisplayProgressBar("Uploading...", "アップロード中", 0.5F);
-                var service = new AvatarUploadService(tokenAuth.VerifiedToken, zipPath, avatarName,
+                var service = new AvatarUploadService(userInfo.VerifiedToken, zipPath, avatarName,
                     () =>
                     {
                         EditorUtility.ClearProgressBar();

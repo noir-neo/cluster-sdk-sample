@@ -1,6 +1,4 @@
 using System;
-using UnityEditor;
-using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
 
@@ -21,44 +19,10 @@ namespace ClusterVRSDK.Editor.Venue
 
         public void AddView(VisualElement parent)
         {
-            parent.Add(new IMGUIContainer(() =>
-            {
-                Process();
-                DrawUI();
-            }));
-        }
-
-        void Process()
-        {
-            editVenueView.Process();
-            uploadVenueView.Process();
-        }
-
-        enum Tab
-        {
-            Edit,
-            Upload
-        }
-
-        Tab currentTab;
-
-        void DrawUI()
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-                currentTab = (Tab) GUILayout.Toolbar((int) currentTab, new[] {"会場の設定", "アップロード"});
-                GUILayout.FlexibleSpace();
-            }
-
-            if (currentTab == Tab.Edit)
-            {
-                editVenueView.DrawUI();
-            }
-            else
-            {
-                uploadVenueView.DrawUI();
-            }
+            var editVenueTab = editVenueView.CreateView();
+            var uploadVenueTab = uploadVenueView.CreateView();
+            parent.Add(editVenueTab);
+            parent.Add(uploadVenueTab);
         }
     }
 }
