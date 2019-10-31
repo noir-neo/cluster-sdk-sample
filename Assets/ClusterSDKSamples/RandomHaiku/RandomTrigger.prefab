@@ -74,6 +74,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 4249910362794285692}
+  keepPosition: 0
+  keepRotation: 0
 --- !u!1 &4249910362655915430
 GameObject:
   m_ObjectHideFlags: 0
@@ -148,6 +150,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 4249910362794285692}
+  keepPosition: 0
+  keepRotation: 0
 --- !u!1 &4249910362770948985
 GameObject:
   m_ObjectHideFlags: 0
@@ -222,6 +226,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 4249910362794285692}
+  keepPosition: 0
+  keepRotation: 0
 --- !u!1 &4249910362794285693
 GameObject:
   m_ObjectHideFlags: 0
@@ -326,6 +332,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 4249910362794285692}
+  keepPosition: 0
+  keepRotation: 0
 --- !u!1 &4249910363519634289
 GameObject:
   m_ObjectHideFlags: 0
@@ -397,6 +405,7 @@ MeshRenderer:
   m_ProbeAnchor: {fileID: 0}
   m_LightProbeVolumeOverride: {fileID: 0}
   m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
   m_PreserveUVs: 0
   m_IgnoreNormalsForChartDetection: 0
   m_ImportantGI: 0
@@ -642,3 +651,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 4249910362794285692}
+  keepPosition: 0
+  keepRotation: 0
